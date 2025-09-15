@@ -1,10 +1,10 @@
-#inicio
+#início
 
-#defininfo listas
+#defininfd listas
 pacientes = []
 agenda = []
 
-#definindo as funcoes
+#definindo as funções
 
 #menu
 def menu():
@@ -12,33 +12,33 @@ def menu():
     print("1.Cadastrar Paciente")
     print("2.Buscar Paciente")
     print("3.Agendar Consulta")
-    print("4.Relatorio")
+    print("4.Relatório Mensal")
     print('5.Sair')
-    return int(input("Selecione seu servico: "))
+    return int(input("Selecione um serviço: "))
 
-#funcao de cadastro
+#função de cadastro
 def cadastrar_paciente():
     print("*** Cadastro de Paciente ***")
     nome = input("Nome Completo: ")
-    idade = input("Idade: ")
+    idade = int(input("Idade: "))
     telefone = input("Telefone: ")
-    cpf = input("Cpf (Somente numeros, sem espacos.)")
-    endereco = input("Endereco: ")
+    cpf = input("Cpf (Somente números, sem espaços.): ")
+    endereco = input("Endereço: ")
 
     paciente = {
-        "nome":nome,
+        "nome": nome,
         "idade": idade,
-        "telefone":telefone,
-        "cpf":cpf,
-        "endereco":endereco
+        "telefone": telefone,
+        "cpf": cpf,
+        "endereco": endereco
     }
     pacientes.append(paciente)
     print("Paciente cadastrado com sucesso!")
 
-#funcao de busca
+#função de busca
 def buscar_paciente():
     print("*** Consulta de Cadastro ***")
-    busca = input("Digite o nome ou CPF do paciente: ")
+    busca = str(input("Digite o nome ou CPF do paciente: "))
     encontrado = False
     for paciente in pacientes:
         if paciente["nome"] == busca or paciente["cpf"] == busca:
@@ -46,15 +46,14 @@ def buscar_paciente():
             print(f"Idade: {paciente["idade"]}")
             print(f"Telefone: {paciente["telefone"]}")
             print(f"CPF: {paciente["cpf"]}")
-            print(f"Endereco: {paciente["endereco"]}")
+            print(f"Endereço: {paciente["endereco"]}")
         encontrado = True
         break
 
     if not encontrado:
-        print("Paciente nao encontrado!")
+        print("Paciente não encontrado!")
 
 #agendamento
-#*implementar funcao para buscar agendamentos
 def agendar_consulta():
     print("*** Agende sua Consulta ***")
     cpf = input("Digite o CPF do paciente:")
@@ -67,25 +66,32 @@ def agendar_consulta():
             break
 
     if paciente_encontrado is None:
-        print("Paciente nao encontrado, verifique os dados ou cadastre o paciente")
+        print("Paciente não encontrado, verifique os dados ou cadastre o paciente")
         return
+        
     #coletar dados do agendamento
-    hora = input("Informe o horario desejado (HR:MIN): ")
+    hora = input("Informe o horário desejado (HR:MIN): ")
     data = input("Informe a data desejada (DD/MM/AAAA): ")
 
+    #verifica se horário e data escolhidos já existem na lista
+    for agendamento in agenda:
+        if agendamento["data"] == data and agendamento["hora"] == hora:
+            print("Horário e data já agendados, por favor escolha outro.")
+            return
+    
     agendamento = {
         "hora" : hora,
         "data" : data
     }
-
-    #implementar checagem de horarios e datas disponiveis,
-    #verificando se os valores digitados ja existem na lista "agendamento"
+    
     agenda.append(agendamento)
-    print("Agendamento concluido com sucesso!")
+    print("Agendamento concluído com sucesso!")
 
-#funcao para gerar relatorios
+#função para gerar relatórios
 def relatorio():
-    print("Funcao para gerar relatorios, ainda em implementacao.")
+    print("*** Relatório Mensal ***")
+    print(f"Total de pacientes cadastrados: {len(pacientes)}")
+    print(f"Total de agendamentos: {len(agenda)}")
 
 #loop principal
 opcao = 0
@@ -94,14 +100,19 @@ while opcao != 5:
         opcao = menu()
         if opcao == 1:
             cadastrar_paciente()
-        if opcao == 2:
+        elif opcao == 2:
             buscar_paciente()
-        if opcao == 3:
+        elif opcao == 3:
             agendar_consulta()
-        if opcao == 4:
+        elif opcao == 4:
             relatorio()
-        if opcao == 5:
+        elif opcao == 5:
             print("Saindo...")
             break
+            
+        else:
+            print("Opção inválida, tente novamente.")
+        
     except ValueError:
-        print("Opcao invalida, tente novamente.")
+
+        print("Opção inválida, tente novamente.")
