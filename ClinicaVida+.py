@@ -1,20 +1,49 @@
 #início
 
-#defininfd listas
-pacientes = []
-agenda = []
+#importando libs
+import sqlite3
+from datetime import datetime
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+
+
+
+#banco de dados
+def get_connection():
+    con = sqlite3.connect("clinica.db")
+    con.execute("PRAGMA foreign_keys = ON")
+    return con
+
+def inicializar_db():
+    con = get_connection()
+    cur = con.cursor()
+
+    #tabela de pacientes
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS pacientes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        nome TEXT NOT NULL,
+        idade INTEGER NOT NULL,
+        telefone TEXT NOT NULL)
+    """)
+
+     # Tabela de agendamentos (relacionada a pacientes)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS agendamentos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        paciente_id INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        hora TEXT NOT NULL,
+        FOREIGN KEY (paciente_id) REFERENCES pacientes (id)
+    )
+    """)
+
+    con.commit()
+    con.close()
+
+#CRUD
 
 #definindo as funções
-
-#menu
-def menu():
-    print("=== Clinica Vida+ ===")
-    print("1.Cadastrar Paciente")
-    print("2.Buscar Paciente")
-    print("3.Agendar Consulta")
-    print("4.Relatório Mensal")
-    print('5.Sair')
-    return int(input("Selecione um serviço: "))
 
 #função de cadastro
 def cadastrar_paciente():
@@ -22,97 +51,157 @@ def cadastrar_paciente():
     nome = input("Nome Completo: ")
     idade = int(input("Idade: "))
     telefone = input("Telefone: ")
-    cpf = input("Cpf (Somente números, sem espaços.): ")
-    endereco = input("Endereço: ")
 
-    paciente = {
-        "nome": nome,
-        "idade": idade,
-        "telefone": telefone,
-        "cpf": cpf,
-        "endereco": endereco
-    }
-    pacientes.append(paciente)
+    con = get_connection()
+    cur = con.cursor()
+    cur.execute("INSERT INTO pacientes (nome, idade, telefone) VALUES (?, ?, ?)",
+        (nome, idade, telefone))
+    con.commit()
+    con.close()
     print("Paciente cadastrado com sucesso!")
+
+#listar pacientes
+def listar_pacientes():
+    con = get_connection()
+    cur = con.cursor()
+    cur.execute("SELECT id, nome, idade, telefone FROM pacientes")
+    pacientes = cur.fetchall()
+    con.close()
+
+    if not pacientes:
+        print("Nenhum paciente cadastrado.")
+    else:
+        print("--- Pacientes Cadastrados ---")
+        for p in pacientes:
+            print(f"ID: {p[0]} | Nome: {p[1]} | Idade: {p[2]} | Telefone: {p[3]}")
+        print("-----------------------------")
+    return pacientes
+
 
 #função de busca
 def buscar_paciente():
-    print("*** Consulta de Cadastro ***")
-    busca = str(input("Digite o nome ou CPF do paciente: "))
-    encontrado = False
-    for paciente in pacientes:
-        if paciente["nome"] == busca or paciente["cpf"] == busca:
-            print(f"Nome: {paciente["nome"]}")
-            print(f"Idade: {paciente["idade"]}")
-            print(f"Telefone: {paciente["telefone"]}")
-            print(f"CPF: {paciente["cpf"]}")
-            print(f"Endereço: {paciente["endereco"]}")
-        encontrado = True
-        break
+    print("--- Consulta de Cadastro ---")
+    nome = input("Digite o nome do paciente: ")
+    con = get_connection()
+    cur = con.cursor()
+    cur.execute("SELECT * FROM pacientes WHERE nome LIKE ?", (f"%{nome}%",))
+    pacientes = cur.fetchall()
+    con.close()
 
-    if not encontrado:
-        print("Paciente não encontrado!")
+    if pacientes:
+        for p in pacientes:
+            print(f"ID: {p[0]} | Nome {p[1]} | Idade: {p[2]} | Telefone: {p[3]}")
+    else:
+        print("Paciente não encontrado.")
+
+#removendo pacientes
+def remover_paciente():
+    listar_pacientes()
+    id_paciente = int(input("Digite o ID do paciente a remover: "))
+    con = get_connection()
+    cur = con.cursor()
+    cur.execute("DELETE FROM pacientes WHERE id = ?", (id_paciente,))
+    con.commit()
+    con.close()
+    print("Paciente removido com sucesso!")
 
 #agendamento
 def agendar_consulta():
-    print("*** Agende sua Consulta ***")
-    cpf = input("Digite o CPF do paciente:")
-
-    #buscar paciente para agendamento
-    paciente_encontrado = None
-    for paciente in pacientes:
-        if paciente["cpf"] == cpf:
-            paciente_encontrado = paciente
-            break
-
-    if paciente_encontrado is None:
-        print("Paciente não encontrado, verifique os dados ou cadastre o paciente")
+    print("--- Agendamento de Consulta ---")
+    pacientes = listar_pacientes()
+    if not pacientes:
+        print("Nenhum paciente encontrado. Cadastre primeiro.")
         return
-        
-    #coletar dados do agendamento
-    hora = input("Informe o horário desejado (HR:MIN): ")
-    data = input("Informe a data desejada (DD/MM/AAAA): ")
+    paciente_id = int(input("Informe o ID do paciente: "))
 
-    #verifica se horário e data escolhidos já existem na lista
-    for agendamento in agenda:
-        if agendamento["data"] == data and agendamento["hora"] == hora:
-            print("Horário e data já agendados, por favor escolha outro.")
-            return
+    #validar se paciente existe
+    if not any(p[0] == paciente_id for p in pacientes):
+        print("Paciente não encontrado.")
+        return
+    data = input("Informe a Data (DD/MM/AAAA): ")
+    hora = input("Informe o horário (HH:MM): ")
+
+    #validar formato
+    try:
+        datetime.strptime(data, "%d/%m/%Y")
+        datetime.strptime(hora, "%H:%M")
+    except ValueError:
+        print("Data ou Hora inválida. Use o formato correto.")
+        return
+    con = get_connection()
+    cur = con.cursor()
+    #verifica se já existe agendamento correspondente
+    cur.execute("SELECT * FROM agendamentos WHERE data=? AND hora=?", (data, hora))
+    if cur.fetchone():
+        print("Esse horário já está agendado. Escolha outro.")
+        con.close()
+        return
+    cur.execute("INSERT INTO agendamentos (paciente_id, data, hora) VALUES (?, ?, ?)",
+                (paciente_id, data, hora))
+    con.commit()
+    con.close()
+    print("Consulta marcada com sucesso!")
+
+def listar_agendamentos():
+    con = get_connection()
+    cur = con.cursor()
+    cur.execute("""
+    SELECT a.id, p.nome, a.data, a.hora
+    FROM agendamentos a
+    JOIN pacientes p ON p.id = a.paciente_id
+    ORDER BY a.data, a.hora
+    """)
+    agendamentos = cur.fetchall()
+    con.close()
+
+    if not agendamentos:
+        print("Nenhum agendamento encontrado.")
+        return
     
-    agendamento = {
-        "hora" : hora,
-        "data" : data
-    }
-    
-    agenda.append(agendamento)
-    print("Agendamento concluído com sucesso!")
+    print("--- Agenda de Consultas ---")
+    for a in agendamentos:
+        print(f"ID:{a[0]} | Paciente: {a[1]} | Data: {a[2]} | Hora: {a[3]}")
+    print("---------------------------------------")
 
 #função para gerar relatórios
-def relatorio():
-    print("*** Relatório Mensal ***")
-    print(f"Total de pacientes cadastrados: {len(pacientes)}")
-    print(f"Total de agendamentos: {len(agenda)}")
+
+#cadastro de medicos
+
+#menu
+def menu():
+    print("\n=== Clinica Vida+ ===")
+    print("1. Cadastrar Paciente")
+    print("2. Listar Pacientes")
+    print("3. Buscar Paciente")
+    print("4. Remover Paciente")
+    print("5. Sair")
+    print("6. Agendar Consulta")
+    print("7. Listar Agendamentos")
+    return int(input("Selecione uma opção: "))
+
 
 #loop principal
-opcao = 0
-while opcao != 5:
-    try:
-        opcao = menu()
-        if opcao == 1:
-            cadastrar_paciente()
-        elif opcao == 2:
-            buscar_paciente()
-        elif opcao == 3:
-            agendar_consulta()
-        elif opcao == 4:
-            relatorio()
-        elif opcao == 5:
-            print("Saindo...")
-            break
-            
-        else:
-            print("Opção inválida, tente novamente.")
-        
-    except ValueError:
+if __name__ == "__main__":
+    inicializar_db()
+    while True:
+        try:
+            opcao = menu()
+            if opcao == 1:
+                cadastrar_paciente()    
+            elif opcao == 2:
+                listar_pacientes()
+            elif opcao == 3:
+                buscar_paciente()
+            elif opcao == 4:
+                remover_paciente()
+            elif opcao == 5:
+                print("Saindo...")
+                break
+            elif opcao == 6:
+                agendar_consulta()
+            elif opcao == 7:
+                listar_agendamentos()
 
-        print("Opção inválida, tente novamente.")
+        except ValueError:
+
+            print("Opção inválida, tente novamente.")
