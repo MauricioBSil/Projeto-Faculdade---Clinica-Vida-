@@ -3,10 +3,6 @@
 #importando libs
 import sqlite3
 from datetime import datetime
-import tkinter as tk
-from tkinter import messagebox, simpledialog
-
-
 
 #banco de dados
 def get_connection():
@@ -205,3 +201,4 @@ if __name__ == "__main__":
         except ValueError:
 
             print("Opção inválida, tente novamente.")
+
