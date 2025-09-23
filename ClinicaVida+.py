@@ -4,6 +4,7 @@
 import sqlite3
 from datetime import datetime
 
+
 #banco de dados
 def get_connection():
     con = sqlite3.connect("clinica.db")
@@ -23,16 +24,26 @@ def inicializar_db():
         telefone TEXT NOT NULL)
     """)
 
-     # Tabela de agendamentos (relacionada a pacientes)
+     #tabela de agendamentos (relacionada a pacientes)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS agendamentos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         paciente_id INTEGER NOT NULL,
         data TEXT NOT NULL,
         hora TEXT NOT NULL,
+        medico TEXT NOT NULL,
         FOREIGN KEY (paciente_id) REFERENCES pacientes (id)
     )
     """)
+    #tabela de médicos
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS medicos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        especialidade TEXT NOT NULL,
+        crm TEXT NOT NULL
+    )
+    ''')
 
     con.commit()
     con.close()
@@ -116,6 +127,7 @@ def agendar_consulta():
         return
     data = input("Informe a Data (DD/MM/AAAA): ")
     hora = input("Informe o horário (HH:MM): ")
+    medico = input("Informe o nome do médico responsável: ")
 
     #validar formato
     try:
@@ -132,17 +144,17 @@ def agendar_consulta():
         print("Esse horário já está agendado. Escolha outro.")
         con.close()
         return
-    cur.execute("INSERT INTO agendamentos (paciente_id, data, hora) VALUES (?, ?, ?)",
-                (paciente_id, data, hora))
+    cur.execute("INSERT INTO agendamentos (paciente_id, data, hora, medico) VALUES (?, ?, ?, ?)",
+                (paciente_id, data, hora, medico))
     con.commit()
     con.close()
-    print("Consulta marcada com sucesso!")
+    print(f"Consulta marcada com sucesso! Médico responsável: {medico}")
 
 def listar_agendamentos():
     con = get_connection()
     cur = con.cursor()
     cur.execute("""
-    SELECT a.id, p.nome, a.data, a.hora
+    SELECT a.id, p.nome, a.data, a.hora, a.medico
     FROM agendamentos a
     JOIN pacientes p ON p.id = a.paciente_id
     ORDER BY a.data, a.hora
@@ -156,12 +168,63 @@ def listar_agendamentos():
     
     print("--- Agenda de Consultas ---")
     for a in agendamentos:
-        print(f"ID:{a[0]} | Paciente: {a[1]} | Data: {a[2]} | Hora: {a[3]}")
+        print(f"ID:{a[0]} | Paciente: {a[1]} | Data: {a[2]} | Hora: {a[3]} | Médico: {a[4]}")
     print("---------------------------------------")
 
 #função para gerar relatórios
+def gerar_relatorio():
+    print("--- Relatório de Pacientes e Agendamentos ---")
+    con = get_connection()
+    cur = con.cursor()
+    cur.execute("""
+    SELECT p.id, p.nome, p.idade, p.telefone, a.data, a.hora, a.medico
+    FROM pacientes p
+    LEFT JOIN agendamentos a ON p.id = a.paciente_id
+    ORDER BY p.nome, a.data, a.hora
+    """)
+    registros = cur.fetchall()
+    con.close()
 
-#cadastro de medicos
+    if not registros:
+        print("Nenhum registro encontrado.")
+        return
+    
+    for r in registros:
+        paciente_info = f"ID: {r[0]} | Nome: {r[1]} | Idade: {r[2]} | Telefone: {r[3]}"
+        if r[4] and r[5]:
+            agendamento_info = f" | Consulta em {r[4]} às {r[5]} com Dr(a). {r[6]}"
+        else:
+            agendamento_info = " | Sem consultas agendadas"
+        print(paciente_info + agendamento_info)
+    print("---------------------------------------")
+
+# Função para cadastrar um novo médico
+def cadastrar_medico():
+    print("--- Cadastro de Médico ---")
+    nome = input("Nome do médico: ")
+    especialidade = input("Especialidade: ")
+    crm = input("CRM: ")
+    con = get_connection()
+    cur = con.cursor()
+    cur.execute("INSERT INTO medicos (nome, especialidade, crm) VALUES (?, ?, ?)", (nome, especialidade, crm))
+    con.commit()
+    con.close()
+    print("Médico cadastrado com sucesso!")
+
+# Função para listar médicos
+def listar_medicos():
+    con = get_connection()
+    cur = con.cursor()
+    cur.execute("SELECT id, nome, especialidade, crm FROM medicos")
+    medicos = cur.fetchall()
+    con.close()
+    if not medicos:
+        print("Nenhum médico cadastrado.")
+    else:
+        print("--- Médicos Cadastrados ---")
+        for m in medicos:
+            print(f"ID: {m[0]} | Nome: {m[1]} | Especialidade: {m[2]} | CRM: {m[3]}")
+        print("---------------------------")
 
 #menu
 def menu():
@@ -170,9 +233,12 @@ def menu():
     print("2. Listar Pacientes")
     print("3. Buscar Paciente")
     print("4. Remover Paciente")
-    print("5. Sair")
+    print("5. Gerar Relatório")
     print("6. Agendar Consulta")
     print("7. Listar Agendamentos")
+    print("8. Cadastrar Médico")
+    print("9. Listar Médicos")
+    print("10. Sair")
     return int(input("Selecione uma opção: "))
 
 
@@ -191,14 +257,20 @@ if __name__ == "__main__":
             elif opcao == 4:
                 remover_paciente()
             elif opcao == 5:
-                print("Saindo...")
-                break
+                gerar_relatorio()
             elif opcao == 6:
                 agendar_consulta()
             elif opcao == 7:
                 listar_agendamentos()
+            elif opcao == 8:
+                cadastrar_medico()
+            elif opcao == 9:
+                listar_medicos()
+            elif opcao == 10:
+                print("Saindo...")
+                break
+                
 
         except ValueError:
 
             print("Opção inválida, tente novamente.")
-
